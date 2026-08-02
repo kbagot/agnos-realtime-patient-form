@@ -236,7 +236,9 @@ export function StaffBoard() {
               <h1
                 className={cn(
                   "text-base font-semibold tracking-tight text-ink sm:text-lg",
-                  thai ? "leading-snug" : "leading-tight",
+                  // Thai glyphs carry marks above and below; tightening the
+                  // tracking collides them, so undo it and open the leading.
+                  thai ? "leading-snug tracking-normal" : "leading-tight",
                 )}
               >
                 {copy.title}

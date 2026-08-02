@@ -19,9 +19,13 @@ src/
     globals.css                    Design tokens (the only place colours are defined)
     page.tsx                       Landing: send the reviewer to both interfaces
 
+    _i18n.ts                       Landing-page copy, en + th
+
     patient/
       page.tsx                     Route shell + metadata (server component)
+      _i18n.ts                     Every string on this route, en + th
       _components/
+        patient-header.tsx         Title, intro, language switcher
         patient-form.tsx           Form state, validation, outbound sync
         field-control.tsx          One renderer for every control type
         session-identity.tsx       Reference, connection, progress, start over
@@ -30,6 +34,7 @@ src/
 
     staff/
       page.tsx                     Route shell + metadata (server component)
+      _i18n.ts                     Every string on this route, en + th
       _components/
         staff-board.tsx            Layout, filters, counters, selection
         session-card.tsx           One patient in the list
@@ -45,8 +50,11 @@ src/
 
   components/
     ui.tsx                         Primitives used by *both* routes
+    locale-switcher.tsx            EN / ไทย segmented control
 
   lib/
+    i18n/locale.tsx                Locale store (useSyncExternalStore) + useCopy
+    i18n/common.ts                 Field labels, statuses, errors in en + th
     patient-form.ts                Field metadata + Zod schema
     realtime/protocol.ts           Wire types + timing constants
     realtime/use-realtime.ts       Transport selection, reconnect, message queue

@@ -77,8 +77,9 @@ export function SessionCard({
       <p
         className={cn(
           "mt-1.5 truncate text-[15px] font-semibold tracking-tight",
-          // Thai stacks vowels and tone marks above and below the baseline.
-          locale === "th" ? "leading-normal" : "leading-snug",
+          // Thai stacks vowels and tone marks above and below the baseline, so
+          // it needs the extra leading and must not be tracked in.
+          locale === "th" ? "leading-normal tracking-normal" : "leading-snug",
           name ? "text-ink" : "text-ink-faint italic",
         )}
       >

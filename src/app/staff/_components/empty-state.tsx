@@ -5,10 +5,11 @@ import { ArrowRight, MonitorSmartphone } from "lucide-react";
 
 import { STAFF_COPY } from "@/app/staff/_i18n";
 import { buttonStyles, cn } from "@/components/ui";
-import { useCopy } from "@/lib/i18n/locale";
+import { useCopy, useLocale } from "@/lib/i18n/locale";
 
 /** Shown when the board holds no sessions at all — the normal state at 07:00. */
 export function EmptyState({ className }: { className?: string }) {
+  const { locale } = useLocale();
   const copy = useCopy(STAFF_COPY);
 
   return (
@@ -25,7 +26,12 @@ export function EmptyState({ className }: { className?: string }) {
         <MonitorSmartphone className="size-5" />
       </span>
 
-      <h2 className="mt-5 text-base leading-relaxed font-semibold tracking-tight text-ink">
+      <h2
+        className={cn(
+          "mt-5 text-base leading-relaxed font-semibold tracking-tight text-ink",
+          locale === "th" && "tracking-normal",
+        )}
+      >
         {copy.empty.title}
       </h2>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">{copy.empty.body}</p>

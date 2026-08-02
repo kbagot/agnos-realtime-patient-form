@@ -171,7 +171,7 @@ export function SessionDetail({
         <h2
           className={cn(
             "mt-2 text-xl font-semibold tracking-tight sm:text-2xl",
-            locale === "th" ? "leading-snug" : "leading-tight",
+            locale === "th" ? "leading-snug tracking-normal" : "leading-tight",
             name ? "text-ink" : "text-ink-faint italic",
           )}
         >
