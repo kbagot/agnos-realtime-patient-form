@@ -8,7 +8,9 @@ import { COMMON_COPY } from "@/lib/i18n/common";
 import { useCopy, useLocale } from "@/lib/i18n/locale";
 import type { PatientSession } from "@/lib/realtime/protocol";
 
-const NAME_FIELDS = ["firstName", "middleName", "lastName"] as const;
+/** Exactly the fields `patientName` renders — the caret must not fire for a
+ *  field this card never shows. */
+const NAME_FIELDS = ["firstName", "lastName"] as const;
 
 /** First + last as typed so far; empty until the patient starts. */
 function patientName(session: PatientSession): string {

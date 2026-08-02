@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Activity, CloudOff, Stethoscope, Trash2 } from "lucide-react";
+import { Activity, ChevronLeft, CloudOff, Stethoscope, Trash2 } from "lucide-react";
 
 import { EmptyState } from "@/app/staff/_components/empty-state";
 import { SessionCard } from "@/app/staff/_components/session-card";
@@ -124,12 +124,16 @@ export function StaffBoard() {
     let typing = 0;
     let idle = 0;
     let submitted = 0;
+    let removable = 0;
     for (const session of sessions) {
       if (session.status === "typing") typing += 1;
       else if (session.status === "idle") idle += 1;
       else submitted += 1;
+      // The server only drops submitted records whose patient has closed the
+      // form, so anything else would leave the count unchanged on click.
+      if (session.submittedAt !== null && !session.connected) removable += 1;
     }
-    return { total: sessions.length, typing, idle, submitted };
+    return { total: sessions.length, typing, idle, submitted, removable };
   }, [sessions]);
 
   const visible = useMemo(
@@ -256,7 +260,7 @@ export function StaffBoard() {
                 label={COMMON_COPY[locale].connection[connection]}
               />
               <ClearSubmittedButton
-                disabled={counts.submitted === 0}
+                disabled={counts.removable === 0}
                 onClick={() => send({ type: "staff:clear-submitted" })}
                 copy={copy}
               />
@@ -299,7 +303,7 @@ export function StaffBoard() {
             />
 
             <ClearSubmittedButton
-              disabled={counts.submitted === 0}
+              disabled={counts.removable === 0}
               onClick={() => send({ type: "staff:clear-submitted" })}
               className="hidden lg:inline-flex"
               copy={copy}
@@ -410,11 +414,22 @@ export function StaffBoard() {
                 />
               </Card>
             ) : (
-              <Card className="flex w-full items-center justify-center p-10 text-center">
+              <Card className="flex w-full flex-col items-center justify-center gap-4 p-10 text-center">
                 <p className="flex items-center gap-2 text-sm leading-relaxed text-ink-faint">
                   <Activity className="size-4 shrink-0" aria-hidden />
                   {copy.selectPrompt}
                 </p>
+                {/* On mobile the list is hidden while the detail is open, so a
+                    session leaving the active filter would otherwise strand the
+                    user here with nothing to tap. */}
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(false)}
+                  className="inline-flex h-11 items-center gap-1 rounded-field border border-line-strong bg-surface px-3 text-sm font-medium text-ink-soft hover:bg-sunken hover:text-ink lg:hidden"
+                >
+                  <ChevronLeft className="size-4" aria-hidden />
+                  {copy.backToList}
+                </button>
               </Card>
             )}
           </section>
