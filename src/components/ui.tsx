@@ -34,14 +34,20 @@ const DOT_CLASS: Record<SessionStatus, string> = {
 
 export function StatusPill({
   status,
+  label,
+  help,
   className,
   compact = false,
 }: {
   status: SessionStatus;
+  /** Localized override; falls back to the English vocabulary above. */
+  label?: string;
+  help?: string;
   className?: string;
   compact?: boolean;
 }) {
-  const copy = STATUS_COPY[status];
+  const fallback = STATUS_COPY[status];
+  const copy = { label: label ?? fallback.label, help: help ?? fallback.help };
   return (
     <span
       title={copy.help}
@@ -70,10 +76,13 @@ const CONNECTION_COPY: Record<ConnectionState, { label: string; dot: string; ton
 
 export function ConnectionBadge({
   state,
+  label,
   transport,
   className,
 }: {
   state: ConnectionState;
+  /** Localized override; falls back to the English vocabulary above. */
+  label?: string;
   transport?: "websocket" | "sse";
   className?: string;
 }) {
@@ -89,7 +98,7 @@ export function ConnectionBadge({
       aria-live="polite"
     >
       <span className={cn("size-1.5 rounded-full", copy.dot)} aria-hidden />
-      {copy.label}
+      {label ?? copy.label}
       {transport ? (
         <span className="hidden font-mono text-[10px] tracking-tight text-ink-faint uppercase sm:inline">
           {transport === "websocket" ? "ws" : "sse"}

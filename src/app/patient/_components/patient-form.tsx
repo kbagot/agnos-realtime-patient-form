@@ -17,13 +17,15 @@ import {
 
 import { FieldControl } from "@/app/patient/_components/field-control";
 import { SessionIdentity } from "@/app/patient/_components/session-identity";
+import { bodyLeading, latinTracking, PATIENT_COPY } from "@/app/patient/_i18n";
 import { Card, CompletionBar, SectionHeading, buttonStyles, cn } from "@/components/ui";
+import { COMMON_COPY, formatValue, translateError } from "@/lib/i18n/common";
+import { useCopy, useLocale, type Locale } from "@/lib/i18n/locale";
 import {
   completionRatio,
   EMPTY_PATIENT_FORM,
   FIELDS,
   FIELD_GROUPS,
-  formatFieldValue,
   patientFormSchema,
   type FieldGroupId,
   type FieldKey,
@@ -59,13 +61,9 @@ function isFieldKey(value: string): value is FieldKey {
   return FIELD_KEYS.has(value);
 }
 
-function invalidMessage(count: number): string {
-  return count === 1
-    ? "1 field still needs your attention before we can submit."
-    : `${count} fields still need your attention before we can submit.`;
-}
-
 export function PatientForm() {
+  const { locale } = useLocale();
+  const copy = useCopy(PATIENT_COPY);
   const { sessionId, resetSessionId } = usePatientSession();
 
   // useRealtime owns joining: it replays this on every (re)connect and, on the
@@ -101,6 +99,8 @@ export function PatientForm() {
     return out;
   }, [watched]);
 
+  // Kept in English: this is what travels to the staff board, which translates
+  // it for whoever is reading there. Only the render below is localised.
   const fieldErrors = useMemo<FieldErrors>(() => {
     const out: FieldErrors = {};
     for (const field of FIELDS) {
@@ -265,6 +265,7 @@ export function PatientForm() {
         {submitted ? (
           <SubmittedCard
             ref={successRef}
+            locale={locale}
             reference={reference}
             values={submitted}
             onEdit={handleEdit}
@@ -280,11 +281,12 @@ export function PatientForm() {
             {/* Always mounted so the announcement isn't lost to a display:none
                 region the moment a failed submit populates it. */}
             <p className="sr-only" aria-live="assertive">
-              {invalidCount > 0 ? invalidMessage(invalidCount) : ""}
+              {invalidCount > 0 ? copy.invalidAnnouncement(invalidCount) : ""}
             </p>
 
             {GROUPED_FIELDS.map(({ group, fields }, index) => {
               const Icon = GROUP_ICON[group.id];
+              const groupCopy = COMMON_COPY[locale].groups[group.id];
               return (
                 <Card key={group.id} className={cn("animate-rise p-5 sm:p-6", RISE_DELAY[index])}>
                   <div className="flex items-center gap-3">
@@ -294,7 +296,11 @@ export function PatientForm() {
                     >
                       <Icon className="size-4.5" />
                     </span>
-                    <SectionHeading title={group.title} hint={group.hint} className="min-w-0 flex-1" />
+                    <SectionHeading
+                      title={groupCopy.title}
+                      hint={groupCopy.hint}
+                      className="min-w-0 flex-1"
+                    />
                   </div>
                   <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {fields.map((field) => (
@@ -302,7 +308,7 @@ export function PatientForm() {
                         key={field.key}
                         meta={field}
                         registration={register(field.key)}
-                        error={fieldErrors[field.key]}
+                        error={translateError(locale, fieldErrors[field.key])}
                       />
                     ))}
                   </div>
@@ -311,20 +317,23 @@ export function PatientForm() {
             })}
 
             {invalidCount > 0 ? (
-              <p className="flex items-start gap-2.5 rounded-card border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
+              <p
+                className={cn(
+                  "flex items-start gap-2.5 rounded-card border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger",
+                  bodyLeading(locale),
+                )}
+              >
                 <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                {invalidMessage(invalidCount)}
+                {copy.invalidAnnouncement(invalidCount)}
               </p>
             ) : null}
 
             {/* Desktop action row. */}
             <div className="hidden items-center justify-between gap-6 rounded-card border border-line bg-surface px-5 py-4 shadow-card lg:flex">
-              <p className="text-xs leading-relaxed text-ink-soft">
-                Submitting confirms your details. The care team can already read everything above.
-              </p>
+              <p className={cn("text-xs text-ink-soft", bodyLeading(locale))}>{copy.submitHint}</p>
               <button type="submit" className={cn(buttonStyles.primary, "shrink-0")}>
-                <Send className="size-4" aria-hidden />
-                Submit details
+                <Send className="size-4 shrink-0" aria-hidden />
+                {copy.submit}
               </button>
             </div>
 
@@ -332,11 +341,11 @@ export function PatientForm() {
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur lg:hidden">
               <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
                 <div className="min-w-0 flex-1">
-                  <CompletionBar value={completion} label="Form completion" />
+                  <CompletionBar value={completion} label={copy.completionAria} />
                 </div>
-                <button type="submit" className={cn(buttonStyles.primary, "shrink-0")}>
-                  <Send className="size-4" aria-hidden />
-                  Submit
+                <button type="submit" className={cn(buttonStyles.primary, "shrink-0 px-4")}>
+                  <Send className="size-4 shrink-0" aria-hidden />
+                  {copy.submitShort}
                 </button>
               </div>
             </div>
@@ -351,15 +360,19 @@ export function PatientForm() {
 
 function SubmittedCard({
   ref,
+  locale,
   reference,
   values,
   onEdit,
 }: {
   ref: React.Ref<HTMLDivElement>;
+  locale: Locale;
   reference: string | null;
   values: PatientFormValues;
   onEdit: () => void;
 }) {
+  const copy = PATIENT_COPY[locale].success;
+  const fieldLabels = COMMON_COPY[locale].fields;
   const filled = FIELDS.filter((field) => (values[field.key] ?? "").trim().length > 0);
 
   return (
@@ -369,12 +382,15 @@ function SubmittedCard({
           <CircleCheckBig className="size-5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Thank you — your details are with the care team
+          <h2
+            className={cn(
+              "text-lg leading-snug font-semibold text-ink",
+              latinTracking(locale, "tracking-tight"),
+            )}
+          >
+            {copy.title}
           </h2>
-          <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-            Please give this reference at the front desk. You can still change anything below.
-          </p>
+          <p className={cn("mt-1 text-sm text-ink-soft", bodyLeading(locale))}>{copy.body}</p>
         </div>
       </div>
 
@@ -382,22 +398,39 @@ function SubmittedCard({
         {reference ?? "—"}
       </p>
 
-      <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+      <h3
+        className={cn(
+          "mt-7 text-[11px] font-semibold text-ink-faint uppercase",
+          latinTracking(locale, "tracking-[0.14em]"),
+        )}
+      >
+        {copy.summaryHeading}
+      </h3>
+      <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
         {filled.map((field) => (
           <div key={field.key} className="flex flex-col gap-0.5 border-t border-line pt-3">
-            <dt className="text-[11px] font-medium tracking-wide text-ink-faint uppercase">
-              {field.label}
+            <dt
+              className={cn(
+                "text-[11px] leading-4 font-medium text-ink-faint uppercase",
+                latinTracking(locale, "tracking-wide"),
+              )}
+            >
+              {fieldLabels[field.key]}
             </dt>
-            <dd className="text-sm break-words text-ink">
-              {formatFieldValue(field.key, values[field.key])}
+            <dd className="text-sm leading-relaxed break-words text-ink">
+              {formatValue(locale, field.key, values[field.key])}
             </dd>
           </div>
         ))}
       </dl>
 
-      <button type="button" onClick={onEdit} className={cn(buttonStyles.secondary, "mt-7 w-full sm:w-auto")}>
-        <Pencil className="size-4" aria-hidden />
-        Edit my answers
+      <button
+        type="button"
+        onClick={onEdit}
+        className={cn(buttonStyles.secondary, "mt-7 w-full sm:w-auto")}
+      >
+        <Pencil className="size-4 shrink-0" aria-hidden />
+        {copy.edit}
       </button>
     </Card>
   );

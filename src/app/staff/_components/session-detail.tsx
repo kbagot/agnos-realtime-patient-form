@@ -4,13 +4,11 @@ import { useState } from "react";
 import { ChevronLeft, Eye, EyeOff, ShieldCheck, TriangleAlert, WifiOff } from "lucide-react";
 
 import { useFieldFlash } from "@/app/staff/_hooks/use-field-flash";
-import { CompletionBar, SectionHeading, StatusPill, cn, relativeTime } from "@/components/ui";
-import {
-  FIELDS,
-  FIELD_GROUPS,
-  formatFieldValue,
-  type FieldMeta,
-} from "@/lib/patient-form";
+import { STAFF_COPY, relativeTime, type StaffCopy } from "@/app/staff/_i18n";
+import { CompletionBar, SectionHeading, StatusPill, cn } from "@/components/ui";
+import { COMMON_COPY, formatValue, translateError } from "@/lib/i18n/common";
+import { useCopy, useLocale, type Locale } from "@/lib/i18n/locale";
+import { FIELDS, FIELD_GROUPS, type FieldMeta } from "@/lib/patient-form";
 import type { PatientSession } from "@/lib/realtime/protocol";
 
 /** Fixed-ish dot run: never leaks the real length of a phone number or address. */
@@ -31,17 +29,22 @@ function FieldRow({
   session,
   revealed,
   flashToken,
+  locale,
+  copy,
 }: {
   field: FieldMeta;
   session: PatientSession;
   revealed: boolean;
   flashToken: number | undefined;
+  locale: Locale;
+  copy: StaffCopy;
 }) {
+  const common = COMMON_COPY[locale];
   const raw = (session.values[field.key] ?? "").trim();
-  const error = session.errors[field.key];
+  const error = translateError(locale, session.errors[field.key]);
   const editing = session.activeField === field.key && session.status === "typing";
   const hidden = field.sensitive && !revealed && raw.length > 0;
-  const display = hidden ? mask(raw) : formatFieldValue(field.key, raw);
+  const display = hidden ? mask(raw) : formatValue(locale, field.key, raw);
 
   return (
     <div
@@ -60,27 +63,29 @@ function FieldRow({
       ) : null}
 
       <div className="relative sm:grid sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-baseline sm:gap-4">
-        <dt className="flex items-baseline gap-1 text-xs font-medium text-ink-soft sm:text-[13px]">
-          {field.label}
+        <dt className="flex items-baseline gap-1 text-xs leading-relaxed font-medium text-ink-soft sm:text-[13px]">
+          {common.fields[field.key]}
           {field.required ? (
-            <span className="text-danger" aria-hidden>
-              *
-            </span>
+            <>
+              <span className="text-danger" aria-hidden>
+                *
+              </span>
+              <span className="sr-only">({common.required})</span>
+            </>
           ) : null}
-          {field.required ? <span className="sr-only">(required)</span> : null}
         </dt>
 
         <dd className="mt-0.5 min-w-0 sm:mt-0">
           <span
             className={cn(
-              "text-sm break-words",
+              "text-sm leading-relaxed break-words",
               raw.length > 0 ? "font-medium text-ink" : "text-ink-faint italic",
               hidden && "font-mono tracking-widest text-ink-soft",
             )}
           >
-            {raw.length > 0 ? display : "Not provided yet"}
+            {raw.length > 0 ? display : copy.notProvided}
           </span>
-          {hidden ? <span className="sr-only"> — hidden, use reveal to show</span> : null}
+          {hidden ? <span className="sr-only"> — {copy.maskedForScreenReader}</span> : null}
 
           {editing ? (
             <>
@@ -89,13 +94,13 @@ function FieldRow({
                 aria-hidden
               />
               <span className="ml-2 align-middle text-[11px] font-medium text-live">
-                editing now
+                {copy.editingNow}
               </span>
             </>
           ) : null}
 
           {error ? (
-            <p className="mt-1 flex items-start gap-1.5 text-xs font-medium text-danger">
+            <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed font-medium text-danger">
               <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
               {error}
             </p>
@@ -115,12 +120,17 @@ export function SessionDetail({
   now: number;
   onBack: () => void;
 }) {
+  const { locale } = useLocale();
+  const copy = useCopy(STAFF_COPY);
+  const common = COMMON_COPY[locale];
+
   // Keyed by session id rather than reset in an effect: switching patient can
   // never leave the next record's contact details exposed.
   const [revealedFor, setRevealedFor] = useState<string | null>(null);
   const revealed = revealedFor === session.id;
 
   const flashes = useFieldFlash(session.id, session.values);
+  const status = common.status[session.status];
   const name = fullName(session);
   const issues = Object.keys(session.errors).length;
 
@@ -133,52 +143,53 @@ export function SessionDetail({
           className="-ml-2 mb-2 inline-flex h-11 items-center gap-1 rounded-field px-2 text-sm font-medium text-ink-soft hover:bg-sunken hover:text-ink lg:hidden"
         >
           <ChevronLeft className="size-4" aria-hidden />
-          All patients
+          {copy.backToList}
         </button>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="font-mono text-xs font-medium tracking-wider text-ink-faint tabular-nums">
             {session.reference}
           </span>
-          <StatusPill status={session.status} />
+          <StatusPill status={session.status} label={status.label} help={status.help} />
           {!session.connected ? (
             <span
               className="inline-flex items-center gap-1.5 rounded-full border border-line bg-sunken px-2.5 py-1 text-xs font-medium text-ink-soft"
-              title="The patient's device is no longer connected — the values below are the last we received."
+              title={copy.disconnectedHint}
             >
               <WifiOff className="size-3.5" aria-hidden />
-              Disconnected
+              {copy.disconnected}
             </span>
           ) : null}
           {issues > 0 ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/25 bg-danger-soft px-2.5 py-1 text-xs font-medium text-danger">
               <TriangleAlert className="size-3.5" aria-hidden />
-              {issues} validation {issues === 1 ? "issue" : "issues"}
+              {copy.validationIssues(issues)}
             </span>
           ) : null}
         </div>
 
         <h2
           className={cn(
-            "mt-2 text-xl leading-tight font-semibold tracking-tight sm:text-2xl",
+            "mt-2 text-xl font-semibold tracking-tight sm:text-2xl",
+            locale === "th" ? "leading-snug" : "leading-tight",
             name ? "text-ink" : "text-ink-faint italic",
           )}
         >
-          {name || "Awaiting name"}
+          {name || copy.awaitingName}
         </h2>
 
-        <p className="mt-1 text-xs text-ink-faint tabular-nums">
+        <p className="mt-1 text-xs leading-relaxed text-ink-faint tabular-nums">
           {session.submittedAt !== null
-            ? `Submitted ${relativeTime(session.submittedAt, now)}`
-            : `Last input ${relativeTime(session.updatedAt, now)}`}
-          {" · opened "}
-          {relativeTime(session.createdAt, now)}
+            ? copy.submittedAt(relativeTime(copy, session.submittedAt, now))
+            : copy.lastInput(relativeTime(copy, session.updatedAt, now))}
+          {" · "}
+          {copy.openedAt(relativeTime(copy, session.createdAt, now))}
         </p>
 
         <CompletionBar
           value={session.completion}
           className="mt-3 max-w-md"
-          label={`${session.reference} required fields complete`}
+          label={copy.aria.requiredComplete(session.reference)}
         />
 
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -193,14 +204,11 @@ export function SessionDetail({
             ) : (
               <Eye className="size-4" aria-hidden />
             )}
-            {revealed ? "Hide contact details" : "Reveal contact details"}
+            {revealed ? copy.hide : copy.reveal}
           </button>
-          <p className="flex items-start gap-1.5 text-[11px] leading-snug text-ink-faint">
+          <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-ink-faint">
             <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden />
-            <span className="max-w-xs">
-              Phone, email, address and religion stay masked so the board can sit on a shared
-              screen. Revealing applies to this record only.
-            </span>
+            <span className="max-w-xs">{copy.maskNote}</span>
           </p>
         </div>
       </header>
@@ -209,11 +217,12 @@ export function SessionDetail({
         {FIELD_GROUPS.map((group) => {
           const fields = FIELDS.filter((field) => field.group === group.id);
           if (fields.length === 0) return null;
+          const groupCopy = common.groups[group.id];
           return (
             <section key={group.id} className="border-b border-line last:border-b-0">
               <SectionHeading
-                title={group.title}
-                hint={group.hint}
+                title={groupCopy.title}
+                hint={groupCopy.hint}
                 className="bg-sunken px-4 py-2.5 sm:px-5"
               />
               <dl className="px-1 py-1 sm:px-1.5">
@@ -224,6 +233,8 @@ export function SessionDetail({
                     session={session}
                     revealed={revealed}
                     flashToken={flashes.get(field.key)}
+                    locale={locale}
+                    copy={copy}
                   />
                 ))}
               </dl>

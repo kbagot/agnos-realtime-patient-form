@@ -2,7 +2,10 @@
 
 import { ChevronRight, TriangleAlert, WifiOff } from "lucide-react";
 
-import { CompletionBar, StatusPill, cn, relativeTime } from "@/components/ui";
+import { STAFF_COPY, relativeTime } from "@/app/staff/_i18n";
+import { CompletionBar, StatusPill, cn } from "@/components/ui";
+import { COMMON_COPY } from "@/lib/i18n/common";
+import { useCopy, useLocale } from "@/lib/i18n/locale";
 import type { PatientSession } from "@/lib/realtime/protocol";
 
 const NAME_FIELDS = ["firstName", "middleName", "lastName"] as const;
@@ -29,6 +32,10 @@ export function SessionCard({
   optionId: string;
   onSelect: (sessionId: string) => void;
 }) {
+  const { locale } = useLocale();
+  const copy = useCopy(STAFF_COPY);
+  const status = COMMON_COPY[locale].status[session.status];
+
   const name = patientName(session);
   const issues = Object.keys(session.errors).length;
   const typingName =
@@ -57,20 +64,25 @@ export function SessionCard({
         <span className="font-mono text-[11px] font-medium tracking-wider text-ink-faint tabular-nums">
           {session.reference}
         </span>
-        <StatusPill status={session.status} compact className="ml-auto" />
-        <ChevronRight
-          className="size-4 shrink-0 text-ink-faint lg:hidden"
-          aria-hidden
+        <StatusPill
+          status={session.status}
+          label={status.label}
+          help={status.help}
+          compact
+          className="ml-auto"
         />
+        <ChevronRight className="size-4 shrink-0 text-ink-faint lg:hidden" aria-hidden />
       </div>
 
       <p
         className={cn(
-          "mt-1.5 truncate text-[15px] leading-snug font-semibold tracking-tight",
+          "mt-1.5 truncate text-[15px] font-semibold tracking-tight",
+          // Thai stacks vowels and tone marks above and below the baseline.
+          locale === "th" ? "leading-normal" : "leading-snug",
           name ? "text-ink" : "text-ink-faint italic",
         )}
       >
-        {name || "Awaiting name"}
+        {name || copy.awaitingName}
         {typingName ? (
           <span
             className="ml-1 inline-block h-3.5 w-0.5 translate-y-0.5 bg-live animate-pulse-live"
@@ -82,23 +94,23 @@ export function SessionCard({
       <CompletionBar
         value={session.completion}
         className="mt-2.5"
-        label={`${session.reference} completion`}
+        label={copy.aria.completion(session.reference)}
       />
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
-        <span className="tabular-nums">{relativeTime(session.updatedAt, now)}</span>
+        <span className="tabular-nums">{relativeTime(copy, session.updatedAt, now)}</span>
 
         {!session.connected ? (
           <span className="inline-flex items-center gap-1 text-ink-soft">
             <WifiOff className="size-3" aria-hidden />
-            Disconnected
+            {copy.disconnected}
           </span>
         ) : null}
 
         {issues > 0 ? (
           <span className="inline-flex items-center gap-1 font-medium text-danger">
             <TriangleAlert className="size-3" aria-hidden />
-            {issues} {issues === 1 ? "issue" : "issues"}
+            {copy.issues(issues)}
           </span>
         ) : null}
       </div>

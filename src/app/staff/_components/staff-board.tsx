@@ -6,7 +6,11 @@ import { Activity, CloudOff, Stethoscope, Trash2 } from "lucide-react";
 import { EmptyState } from "@/app/staff/_components/empty-state";
 import { SessionCard } from "@/app/staff/_components/session-card";
 import { SessionDetail } from "@/app/staff/_components/session-detail";
+import { STAFF_COPY, type StaffCopy } from "@/app/staff/_i18n";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Card, ConnectionBadge, cn } from "@/components/ui";
+import { COMMON_COPY } from "@/lib/i18n/common";
+import { useCopy, useLocale } from "@/lib/i18n/locale";
 import type { ClientMessage, PatientSession } from "@/lib/realtime/protocol";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 
@@ -15,10 +19,10 @@ const STAFF_JOIN: ClientMessage = { type: "staff:join" };
 
 type Filter = "all" | "typing" | "submitted";
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "typing", label: "Filling in" },
-  { value: "submitted", label: "Submitted" },
+const FILTERS: { value: Filter; label: keyof StaffCopy["filters"] }[] = [
+  { value: "all", label: "all" },
+  { value: "typing", label: "typing" },
+  { value: "submitted", label: "submitted" },
 ];
 
 /* ── header pieces ───────────────────────────────────────────────────────── */
@@ -33,15 +37,23 @@ function StatTile({
   value,
   dot,
   tone,
+  thai,
 }: {
   label: string;
   value: number;
   dot?: string;
   tone?: string;
+  /** Thai is never letter-spaced or upper-cased, and needs a touch more size. */
+  thai: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-field border border-line bg-surface px-2.5 py-2 sm:flex-col sm:items-start sm:gap-0 sm:py-1.5">
-      <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-semibold tracking-wider text-ink-faint uppercase">
+      <span
+        className={cn(
+          "flex min-w-0 items-center gap-1.5 font-semibold text-ink-faint",
+          thai ? "text-[11px] leading-relaxed" : "text-[10px] tracking-wider uppercase",
+        )}
+      >
         {dot ? <span className={cn("size-1.5 shrink-0 rounded-full", dot)} aria-hidden /> : null}
         {label}
       </span>
@@ -63,25 +75,27 @@ function ClearSubmittedButton({
   disabled,
   onClick,
   className,
+  copy,
 }: {
   disabled: boolean;
   onClick: () => void;
   className?: string;
+  copy: StaffCopy;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title="Remove submitted records whose patient has closed the form"
+      title={copy.clearSubmittedHint}
       className={cn(
         "inline-flex h-11 shrink-0 items-center gap-2 rounded-field border border-line-strong bg-surface px-3 text-xs font-semibold text-ink-soft transition-colors hover:bg-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 lg:h-9",
         className,
       )}
     >
       <Trash2 className="size-4" aria-hidden />
-      <span className="hidden lg:inline">Clear submitted</span>
-      <span className="sr-only lg:hidden">Clear submitted</span>
+      <span className="hidden lg:inline">{copy.clearSubmitted}</span>
+      <span className="sr-only lg:hidden">{copy.clearSubmitted}</span>
     </button>
   );
 }
@@ -90,6 +104,10 @@ function ClearSubmittedButton({
 
 export function StaffBoard() {
   const { sessions, connection, transport, send } = useRealtime({ onReconnect: STAFF_JOIN });
+
+  const { locale } = useLocale();
+  const copy = useCopy(STAFF_COPY);
+  const thai = locale === "th";
 
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -141,12 +159,13 @@ export function StaffBoard() {
       next.set(session.id, state);
       const before = previous.get(session.id);
       if (!before) {
-        if (primed.current) messages.push(`${session.reference} started a form`);
+        if (primed.current) messages.push(copy.announce.started(session.reference));
         continue;
       }
-      if (!before.submitted && state.submitted) messages.push(`${session.reference} submitted`);
-      else if (before.connected && !state.connected) {
-        messages.push(`${session.reference} disconnected`);
+      if (!before.submitted && state.submitted) {
+        messages.push(copy.announce.submitted(session.reference));
+      } else if (before.connected && !state.connected) {
+        messages.push(copy.announce.disconnected(session.reference));
       }
     }
 
@@ -155,7 +174,8 @@ export function StaffBoard() {
     if (messages.length > 0 && liveRegion.current) {
       liveRegion.current.textContent = messages.join(". ");
     }
-  }, [sessions]);
+    // `copy` re-runs this on a language switch, which finds no diff and stays silent.
+  }, [sessions, copy]);
 
   function select(sessionId: string): void {
     setSelectedId(sessionId);
@@ -193,11 +213,19 @@ export function StaffBoard() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
-      <p ref={liveRegion} aria-live="polite" role="status" className="sr-only" />
+      <p
+        ref={liveRegion}
+        aria-live="polite"
+        aria-label={copy.aria.announcements}
+        role="status"
+        className="sr-only"
+      />
 
       <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-canvas/85 backdrop-blur lg:static">
         <div className="mx-auto flex w-full max-w-[110rem] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-          <div className="flex items-center gap-3">
+          {/* Wraps rather than shrinks: Thai control labels are wider than the
+              English ones, and a clipped header is worse than a second line. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span
               className="hidden size-9 shrink-0 items-center justify-center rounded-field bg-brand-soft text-brand sm:flex"
               aria-hidden
@@ -205,44 +233,66 @@ export function StaffBoard() {
               <Stethoscope className="size-4" />
             </span>
             <div className="min-w-0">
-              <h1 className="text-base leading-tight font-semibold tracking-tight text-ink sm:text-lg">
-                Intake board
+              <h1
+                className={cn(
+                  "text-base font-semibold tracking-tight text-ink sm:text-lg",
+                  thai ? "leading-snug" : "leading-tight",
+                )}
+              >
+                {copy.title}
               </h1>
               {/* Below sm there is no room for a subtitle that is not clipped. */}
-              <p className="hidden truncate text-xs text-ink-faint sm:block">
-                Patient registration, live as it is typed
+              <p className="hidden truncate text-xs leading-relaxed text-ink-faint sm:block">
+                {copy.subtitle}
               </p>
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2 lg:hidden">
-              <ConnectionBadge state={connection} transport={transport} />
+              <LocaleSwitcher />
+              <ConnectionBadge
+                state={connection}
+                transport={transport}
+                label={COMMON_COPY[locale].connection[connection]}
+              />
               <ClearSubmittedButton
                 disabled={counts.submitted === 0}
                 onClick={() => send({ type: "staff:clear-submitted" })}
+                copy={copy}
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2 lg:gap-3">
             <div className="grid flex-1 grid-cols-2 gap-1.5 sm:grid-cols-4 lg:flex lg:flex-none">
-              <StatTile label="Total" value={counts.total} />
+              <StatTile label={copy.stats.total} value={counts.total} thai={thai} />
               <StatTile
-                label="Filling in"
+                label={copy.stats.typing}
                 value={counts.typing}
                 dot="bg-live animate-pulse-live"
                 tone="text-live"
+                thai={thai}
               />
-              <StatTile label="Inactive" value={counts.idle} dot="bg-idle" tone="text-idle" />
               <StatTile
-                label="Submitted"
+                label={copy.stats.idle}
+                value={counts.idle}
+                dot="bg-idle"
+                tone="text-idle"
+                thai={thai}
+              />
+              <StatTile
+                label={copy.stats.submitted}
                 value={counts.submitted}
                 dot="bg-done"
                 tone="text-done"
+                thai={thai}
               />
             </div>
+
+            <LocaleSwitcher className="hidden lg:inline-flex" />
 
             <ConnectionBadge
               state={connection}
               transport={transport}
+              label={COMMON_COPY[locale].connection[connection]}
               className="hidden lg:inline-flex"
             />
 
@@ -250,6 +300,7 @@ export function StaffBoard() {
               disabled={counts.submitted === 0}
               onClick={() => send({ type: "staff:clear-submitted" })}
               className="hidden lg:inline-flex"
+              copy={copy}
             />
           </div>
         </div>
@@ -257,12 +308,10 @@ export function StaffBoard() {
         {degraded ? (
           <div
             role="alert"
-            className="flex items-center gap-2 border-t border-danger/25 bg-danger-soft px-4 py-2 text-xs font-medium text-danger sm:px-6"
+            className="flex items-center gap-2 border-t border-danger/25 bg-danger-soft px-4 py-2 text-xs leading-relaxed font-medium text-danger sm:px-6"
           >
             <CloudOff className="size-4 shrink-0" aria-hidden />
-            {connection === "reconnecting"
-              ? "Reconnecting to the intake service — what you see may be a few seconds stale."
-              : "Disconnected from the intake service. This board is frozen until the connection returns."}
+            {connection === "reconnecting" ? copy.banner.reconnecting : copy.banner.closed}
           </div>
         ) : null}
       </header>
@@ -277,7 +326,7 @@ export function StaffBoard() {
         <main className="mx-auto flex w-full max-w-[110rem] flex-1 flex-col gap-4 px-4 pt-4 pb-6 sm:px-6 lg:min-h-0 lg:flex-row lg:gap-5 lg:overflow-hidden lg:py-5">
           {/* list pane */}
           <section
-            aria-label="Patient sessions"
+            aria-label={copy.aria.sessions}
             className={cn(
               "flex-col lg:flex lg:min-h-0 lg:w-[23rem] lg:shrink-0 xl:w-[25rem]",
               detailOpen ? "hidden" : "flex",
@@ -286,7 +335,7 @@ export function StaffBoard() {
             <div className="mb-3 flex items-center justify-between gap-2">
               <div
                 role="radiogroup"
-                aria-label="Filter by status"
+                aria-label={copy.aria.filter}
                 className="inline-flex rounded-field border border-line bg-sunken p-0.5"
               >
                 {FILTERS.map((option) => {
@@ -305,7 +354,7 @@ export function StaffBoard() {
                           : "text-ink-soft hover:text-ink",
                       )}
                     >
-                      {option.label}
+                      {copy.filters[option.label]}
                     </button>
                   );
                 })}
@@ -316,13 +365,13 @@ export function StaffBoard() {
             </div>
 
             {visible.length === 0 ? (
-              <p className="rounded-card border border-dashed border-line px-4 py-8 text-center text-sm text-ink-faint">
-                No patients match this filter right now.
+              <p className="rounded-card border border-dashed border-line px-4 py-8 text-center text-sm leading-relaxed text-ink-faint">
+                {copy.noMatch}
               </p>
             ) : (
               <ul
                 role="listbox"
-                aria-label="Patient sessions"
+                aria-label={copy.aria.sessions}
                 aria-activedescendant={selected ? `session-option-${selected.id}` : undefined}
                 tabIndex={0}
                 onKeyDown={onListKeyDown}
@@ -344,7 +393,7 @@ export function StaffBoard() {
 
           {/* detail pane */}
           <section
-            aria-label="Patient record"
+            aria-label={copy.aria.record}
             className={cn(
               "flex-1 lg:flex lg:min-h-0",
               detailOpen ? "flex" : "hidden lg:flex",
@@ -360,9 +409,9 @@ export function StaffBoard() {
               </Card>
             ) : (
               <Card className="flex w-full items-center justify-center p-10 text-center">
-                <p className="flex items-center gap-2 text-sm text-ink-faint">
-                  <Activity className="size-4" aria-hidden />
-                  Select a patient to see every field they have entered.
+                <p className="flex items-center gap-2 text-sm leading-relaxed text-ink-faint">
+                  <Activity className="size-4 shrink-0" aria-hidden />
+                  {copy.selectPrompt}
                 </p>
               </Card>
             )}

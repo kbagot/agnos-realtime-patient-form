@@ -1,10 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, MonitorSmartphone } from "lucide-react";
 
+import { STAFF_COPY } from "@/app/staff/_i18n";
 import { buttonStyles, cn } from "@/components/ui";
+import { useCopy } from "@/lib/i18n/locale";
 
 /** Shown when the board holds no sessions at all — the normal state at 07:00. */
 export function EmptyState({ className }: { className?: string }) {
+  const copy = useCopy(STAFF_COPY);
+
   return (
     <div
       className={cn(
@@ -19,13 +25,10 @@ export function EmptyState({ className }: { className?: string }) {
         <MonitorSmartphone className="size-5" />
       </span>
 
-      <h2 className="mt-5 text-base font-semibold tracking-tight text-ink">
-        No patients on the board
+      <h2 className="mt-5 text-base leading-relaxed font-semibold tracking-tight text-ink">
+        {copy.empty.title}
       </h2>
-      <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
-        A record appears here the moment a patient opens the intake form, and every keystroke
-        they type shows up live. Nothing to refresh — leave this screen up.
-      </p>
+      <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">{copy.empty.body}</p>
 
       <Link
         href="/patient"
@@ -33,12 +36,10 @@ export function EmptyState({ className }: { className?: string }) {
         rel="noopener"
         className={cn(buttonStyles.secondary, "mt-6")}
       >
-        Open the patient form
+        {copy.empty.cta}
         <ArrowRight className="size-4" aria-hidden />
       </Link>
-      <p className="mt-3 text-xs text-ink-faint">
-        Opens in a new tab so you can watch both screens side by side.
-      </p>
+      <p className="mt-3 text-xs leading-relaxed text-ink-faint">{copy.empty.note}</p>
     </div>
   );
 }
