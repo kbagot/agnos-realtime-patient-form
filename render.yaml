@@ -7,7 +7,9 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm ci && npm run build
+    # NODE_ENV=production below makes npm skip devDependencies, and the build
+    # genuinely needs them (Tailwind, TypeScript), so ask for them explicitly.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
