@@ -223,7 +223,11 @@ export function SessionDetail({
               <SectionHeading
                 title={groupCopy.title}
                 hint={groupCopy.hint}
-                className="bg-sunken px-4 py-2.5 sm:px-5"
+                // SectionHeading tightens its own h2; Thai must not be tracked in.
+                className={cn(
+                  "bg-sunken px-4 py-2.5 sm:px-5",
+                  locale === "th" && "[&_h2]:tracking-normal",
+                )}
               />
               <dl className="px-1 py-1 sm:px-1.5">
                 {fields.map((field) => (
