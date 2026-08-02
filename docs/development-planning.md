@@ -108,6 +108,22 @@ the case where this matters.
 **PII by default.** Phone, email, address and religion are masked on the staff board until someone
 presses *Reveal*. A shared screen at a reception desk should not broadcast a stranger's address.
 
+**Two languages.** English and Thai, switchable instantly on both screens, remembered per browser
+and defaulted from `navigator.language`. Two decisions worth defending:
+
+- *No routing library.* `next-intl` and locale-prefixed routes would add a middleware, a URL scheme
+  and a build step to a two-language demo. Instead a small context exposes `useCopy(table)`, and
+  each route owns a `_i18n.ts` next to its components — the same colocation rule as everything else.
+  The cost is no per-locale URLs and no server-rendered translation; both are acceptable here and
+  the swap is contained if they stop being acceptable.
+- *Errors travel in English.* Zod messages are authored in English, sent over the wire in English,
+  and translated at render time by `translateError`. So a Thai patient sees "กรุณากรอกอีเมลให้ถูกต้อง"
+  while a nurse reading the same record in English sees "Enter a valid email" — same state, two
+  readers, no duplicated validation.
+
+Thai also changes the typography: no inter-word spaces, taller ascenders and descenders, so line
+height is relaxed and nothing relies on word-boundary wrapping.
+
 ---
 
 ## 3. Component architecture

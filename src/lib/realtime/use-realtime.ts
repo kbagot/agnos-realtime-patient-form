@@ -18,24 +18,15 @@ import {
 
 export type RealtimeTransport = "websocket" | "sse";
 
-/** Resolved at connect time, so a caller can build the message from live state. */
-export type ReconnectFactory = () => ClientMessage | null;
-
 export interface UseRealtimeOptions {
   /**
    * Replayed after every successful (re)connect so the server relearns who this
    * client is — the patient's `patient:join`, the staff view's `staff:join`.
-   * Pass a function when the message depends on state that changes over time.
+   * Callers never send it themselves: the WebSocket replays it on open and the
+   * SSE fallback expresses it in the stream URL, so doing both would double-
+   * count the socket.
    */
-  onReconnect?: ClientMessage | ReconnectFactory | null;
-  /**
-   * Patient session this connection stands for. The SSE fallback binds
-   * join/leave to the stream's lifecycle, so the id has to travel in its URL —
-   * which also makes it the one thing worth reconnecting over. Inferred from a
-   * literal `patient:join` in `onReconnect`; pass it explicitly when
-   * `onReconnect` is a factory and the id can change.
-   */
-  sessionId?: string | null;
+  onReconnect?: ClientMessage | null;
   /** Stay disconnected while false (e.g. before a session id exists). */
   enabled?: boolean;
 }
@@ -112,7 +103,7 @@ function enqueue(queue: ClientMessage[], message: ClientMessage): void {
 }
 
 export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult {
-  const { onReconnect, sessionId, enabled = true } = options;
+  const { onReconnect, enabled = true } = options;
 
   const [sessions, setSessions] = useState<PatientSession[]>([]);
   const [liveConnection, setConnection] = useState<ConnectionState>("connecting");
@@ -124,7 +115,7 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
   // Read through a ref so a caller passing an inline object literal doesn't
   // tear the connection down on every render. Only ever read from a socket
   // callback, so a commit-time write is early enough.
-  const reconnectRef = useRef<ClientMessage | ReconnectFactory | null | undefined>(onReconnect);
+  const reconnectRef = useRef<ClientMessage | null | undefined>(onReconnect);
   useEffect(() => {
     reconnectRef.current = onReconnect;
   });
@@ -135,11 +126,10 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
   // upgrades are impossible on this page load, never try one again.
   const sseOnlyRef = useRef(sseForcedByEnv());
 
-  const joinSessionId =
-    sessionId ??
-    (typeof onReconnect === "object" && onReconnect?.type === "patient:join"
-      ? onReconnect.sessionId
-      : null);
+  // The SSE stream binds the patient session to its own lifecycle, so the id has
+  // to be part of its URL — which makes it a genuine connection dependency: a
+  // patient starting over reconnects under the new id.
+  const joinSessionId = onReconnect?.type === "patient:join" ? onReconnect.sessionId : null;
 
   const send = useCallback((message: ClientMessage) => {
     const deliver = deliverRef.current;
@@ -156,11 +146,6 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
     let wsFailures = 0;
-
-    const resolveReconnect = (): ClientMessage | null => {
-      const value = reconnectRef.current;
-      return typeof value === "function" ? value() : (value ?? null);
-    };
 
     const ingest = (raw: string): void => {
       let parsed: unknown;
@@ -217,12 +202,7 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
 
     const openSse = (): void => {
       const url = new URL(SSE_PATH, window.location.href);
-      // Falls back to whatever the reconnect factory reports right now, so a
-      // caller that only passes a factory still gets its join bound correctly.
-      const rejoin = joinSessionId === null ? resolveReconnect() : null;
-      const streamSession =
-        joinSessionId ?? (rejoin?.type === "patient:join" ? rejoin.sessionId : null);
-      if (streamSession) url.searchParams.set("sessionId", streamSession);
+      if (joinSessionId) url.searchParams.set("sessionId", joinSessionId);
 
       const stream = new EventSource(url.toString());
       source = stream;
@@ -295,7 +275,7 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
         };
         // The server answers a fresh connection with a snapshot, so this only
         // has to re-announce who we are; the resync comes for free.
-        const rejoin = resolveReconnect();
+        const rejoin = reconnectRef.current;
         if (rejoin) deliverRef.current(rejoin);
         flush();
       };

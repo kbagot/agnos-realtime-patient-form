@@ -86,6 +86,12 @@ Everything works with zero configuration. See [`.env.example`](.env.example) for
 
 ### Extras beyond the brief
 
+- **Bilingual, English and Thai.** Both interfaces switch language instantly — labels, help text,
+  validation messages, gender and language values, and date formatting. The choice is remembered,
+  defaults to Thai for a Thai browser, and switching mid-form keeps the session and everything
+  already typed. Validation messages travel over the wire in English and are translated at render
+  time, so a Thai patient and an English-reading nurse can look at the same record in their own
+  language at the same time.
 - **Two interchangeable transports.** WebSocket by default; an SSE + POST fallback for serverless
   hosts, switched by one environment variable. Same protocol, same store, same UI.
 - **Live field focus** — the board shows the exact field being edited, with a caret.
@@ -134,7 +140,10 @@ src/
       realtime/publish/        POST upstream   (fallback transport)
       health/                  Liveness probe
   components/ui.tsx            Shared primitives (status pill, cards, buttons)
+  components/locale-switcher.tsx
   lib/
+    i18n/locale.tsx            Locale context; i18n copy lives beside each route
+    i18n/common.ts             Field labels, statuses, errors in en + th
     patient-form.ts            Field metadata + Zod schema — one source of truth
     realtime/protocol.ts       Wire protocol shared by client and server
     realtime/use-realtime.ts   The only realtime API the UI touches
