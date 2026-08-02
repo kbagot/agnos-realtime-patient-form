@@ -64,10 +64,36 @@ export const SESSION_TTL_MS = 30 * 60_000;
 /** Patient form coalesces keystrokes into at most one message per interval. */
 export const UPDATE_THROTTLE_MS = 120;
 
-export function isServerMessage(value: unknown): value is ServerMessage {
+function isSession(value: unknown): value is PatientSession {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<PatientSession>;
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { type?: unknown }).type === "string"
+    typeof candidate.id === "string" &&
+    typeof candidate.reference === "string" &&
+    typeof candidate.status === "string" &&
+    typeof candidate.values === "object" &&
+    candidate.values !== null
   );
+}
+
+/**
+ * Guards the reducer against a truncated or foreign frame: a `snapshot` whose
+ * payload is not an array of sessions would otherwise put `undefined` into the
+ * list and crash the board on the next render.
+ */
+export function isServerMessage(value: unknown): value is ServerMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as { type?: unknown; sessions?: unknown; session?: unknown; sessionId?: unknown };
+  switch (message.type) {
+    case "snapshot":
+      return Array.isArray(message.sessions) && message.sessions.every(isSession);
+    case "session:upsert":
+      return isSession(message.session);
+    case "session:remove":
+      return typeof message.sessionId === "string";
+    case "pong":
+      return true;
+    default:
+      return false;
+  }
 }

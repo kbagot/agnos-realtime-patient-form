@@ -50,6 +50,12 @@ const MAX_BACKOFF_MS = 8_000;
 const WS_FAILURE_LIMIT = 2;
 /** A socket that dies sooner than this never really worked (proxy killed it). */
 const WS_MIN_HEALTHY_MS = 3_000;
+/**
+ * While on the SSE fallback, re-probe the WebSocket this often. Without it a
+ * downgrade caused by a transient blip (a server restart mid-demo) would last
+ * the whole page load, silently costing the transport the app is built on.
+ */
+const WS_REPROBE_MS = 20_000;
 /** Bounded so an offline tab cannot grow the queue without limit. */
 const MAX_QUEUED = 50;
 
@@ -144,8 +150,14 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
     let socket: WebSocket | null = null;
     let source: EventSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let healthyTimer: ReturnType<typeof setTimeout> | null = null;
+    let reprobeTimer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
+    /** Consecutive only — any socket that proves itself resets this to zero. */
     let wsFailures = 0;
+    // An explicit sse deploy is a fact about the platform, not a symptom, so it
+    // is the one downgrade that must never be probed back out of.
+    const envForcedSse = sseForcedByEnv();
 
     const ingest = (raw: string): void => {
       let parsed: unknown;
@@ -184,6 +196,18 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
       }, delay);
     };
 
+    const scheduleReprobe = (): void => {
+      if (disposed || envForcedSse || reprobeTimer !== null) return;
+      reprobeTimer = setTimeout(() => {
+        reprobeTimer = null;
+        if (disposed || !sseOnlyRef.current) return;
+        // Drop the stream before probing: two live transports would double-count
+        // the patient's socket for as long as the probe is in flight.
+        closeSse();
+        openWebSocket();
+      }, WS_REPROBE_MS);
+    };
+
     const post = async (message: ClientMessage): Promise<void> => {
       try {
         const response = await fetch(PUBLISH_PATH, {
@@ -198,6 +222,14 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
       } catch {
         if (!disposed) enqueue(queueRef.current, message);
       }
+    };
+
+    const closeSse = (): void => {
+      if (!source) return;
+      source.onopen = source.onmessage = source.onerror = null;
+      source.close();
+      source = null;
+      deliverRef.current = null;
     };
 
     const openSse = (): void => {
@@ -223,17 +255,16 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
         // carries the patient session and the server pushes a snapshot as its
         // first frame, so a POSTed join would only double-count the socket.
         flush();
+        scheduleReprobe();
       };
 
       stream.onmessage = (event: MessageEvent<string>) => ingest(event.data);
 
       stream.onerror = () => {
-        deliverRef.current = null;
         if (disposed) return;
         // EventSource retries on its own, but without jitter and without
         // re-running our join, so we own reconnection instead.
-        stream.close();
-        source = null;
+        closeSse();
         scheduleRetry();
       };
     };
@@ -268,6 +299,17 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
         openedAt = Date.now();
         attempt = 0;
         setConnection("open");
+        // Surviving the health threshold is the only proof that upgrades really
+        // work here, so that is what re-arms the transport after a downgrade.
+        // The label flips only now, so a probe that dies early never advertises
+        // a WebSocket it could not keep.
+        healthyTimer = setTimeout(() => {
+          healthyTimer = null;
+          wsFailures = 0;
+          if (envForcedSse) return;
+          sseOnlyRef.current = false;
+          setTransport("websocket");
+        }, WS_MIN_HEALTHY_MS);
         deliverRef.current = (message) => {
           if (ws.readyState !== WebSocket.OPEN) return false;
           ws.send(JSON.stringify(message));
@@ -287,6 +329,10 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
       ws.onclose = (event: CloseEvent) => {
         deliverRef.current = null;
         socket = null;
+        if (healthyTimer !== null) {
+          clearTimeout(healthyTimer);
+          healthyTimer = null;
+        }
         if (disposed) return;
         const shortLived = openedAt !== 0 && Date.now() - openedAt < WS_MIN_HEALTHY_MS;
         const clean = event.code === 1000 || event.code === 1001;
@@ -313,6 +359,8 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
       disposed = true;
       deliverRef.current = null;
       if (retryTimer !== null) clearTimeout(retryTimer);
+      if (healthyTimer !== null) clearTimeout(healthyTimer);
+      if (reprobeTimer !== null) clearTimeout(reprobeTimer);
       if (socket) {
         // Detach first: a close we asked for must not be read as a failure.
         socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null;
@@ -321,11 +369,7 @@ export function useRealtime(options: UseRealtimeOptions = {}): UseRealtimeResult
         }
         socket = null;
       }
-      if (source) {
-        source.onopen = source.onmessage = source.onerror = null;
-        source.close();
-        source = null;
-      }
+      closeSse();
       setConnection("closed");
     };
   }, [enabled, joinSessionId]);

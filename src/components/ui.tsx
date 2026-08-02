@@ -209,15 +209,3 @@ export const buttonStyles = {
     "h-9 px-3 text-ink-soft hover:bg-sunken hover:text-ink",
   ),
 } as const;
-
-/* ── misc ────────────────────────────────────────────────────────────────── */
-
-export function relativeTime(from: number, now: number): string {
-  const s = Math.max(0, Math.round((now - from) / 1000));
-  if (s < 5) return "just now";
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  return `${h} h ago`;
-}

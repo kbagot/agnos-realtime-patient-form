@@ -86,7 +86,7 @@ export function PatientForm() {
     reValidateMode: "onChange",
   });
   const { control, register, handleSubmit, formState, reset, setFocus } = form;
-  const { errors, submitCount } = formState;
+  const { errors, submitCount, isDirty } = formState;
 
   const watched = useWatch({ control, defaultValue: EMPTY_PATIENT_FORM });
 
@@ -125,6 +125,17 @@ export function PatientForm() {
   const signatureRef = useRef<string | null>(null);
   const activeFieldRef = useRef<FieldKey | null>(null);
   const focusedRef = useRef(false);
+  const everFocusedRef = useRef(false);
+  /**
+   * Publishing is locked until the patient actually changes something. A fresh
+   * mount would otherwise announce its blank form: on a refresh that overwrites
+   * the record on the board with empty values, and un-submits a submitted one.
+   * The latch is sticky, so clearing a field back to empty still publishes.
+   */
+  const hasEditedRef = useRef(false);
+  useEffect(() => {
+    if (isDirty) hasEditedRef.current = true;
+  }, [isDirty]);
 
   const flush = useCallback(() => {
     if (timerRef.current) {
@@ -138,8 +149,9 @@ export function PatientForm() {
       send(pending);
     }
     // A keystroke queued just before the patient walked away must not resurrect
-    // "typing" on the board — re-assert the blur behind it.
-    if (!focusedRef.current && sessionId) {
+    // "typing" on the board — re-assert the blur behind it. Only once a focus
+    // has actually happened: a patient who just opened the form is not idle.
+    if (everFocusedRef.current && !focusedRef.current && sessionId) {
       send({ type: "patient:blur", sessionId });
     }
   }, [send, sessionId]);
@@ -173,7 +185,9 @@ export function PatientForm() {
     if (!sessionId || submitted) return;
     const signature = JSON.stringify([sessionId, values, fieldErrors]);
     if (signature === signatureRef.current) return;
+    // Recorded even while locked, so the patient's first real change is a diff.
     signatureRef.current = signature;
+    if (!hasEditedRef.current) return;
     schedule({
       type: "patient:update",
       sessionId,
@@ -189,8 +203,11 @@ export function PatientForm() {
     const name = event.target.getAttribute("name");
     const key = name && isFieldKey(name) ? name : null;
     focusedRef.current = true;
+    everFocusedRef.current = true;
     activeFieldRef.current = key;
-    if (!key || !sessionId || submitted) return;
+    // Same lock as the update effect: merely tabbing through an untouched form
+    // must not publish its empty values over an existing record.
+    if (!key || !sessionId || submitted || !hasEditedRef.current) return;
     schedule({
       type: "patient:update",
       sessionId,
@@ -232,6 +249,7 @@ export function PatientForm() {
   function handleEdit() {
     setSubmitted(null);
     // Force the next render to publish, so staff see the record reopen.
+    hasEditedRef.current = true;
     signatureRef.current = null;
   }
 
@@ -241,6 +259,9 @@ export function PatientForm() {
     signatureRef.current = null;
     activeFieldRef.current = null;
     focusedRef.current = false;
+    everFocusedRef.current = false;
+    // The new record starts blank and untouched, so re-lock publishing.
+    hasEditedRef.current = false;
     setSubmitted(null);
     reset(EMPTY_PATIENT_FORM);
     resetSessionId();

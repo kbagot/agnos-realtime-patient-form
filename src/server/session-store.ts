@@ -146,11 +146,30 @@ export function leavePatient(sessionId: string): void {
   publish(session);
 }
 
+/**
+ * An all-empty payload against a record that already holds data is never
+ * something a patient did: it is a second tab or a refresh announcing its blank
+ * form before the patient has typed. Honouring it would erase a completed
+ * registration off the board, so it is ignored. Clearing individual fields
+ * still works, because such an update carries the other, non-empty values.
+ */
+function wouldEraseRecord(session: PatientSession, incoming: FieldValues): boolean {
+  const hasStoredData = Object.values(session.values).some((value) => (value ?? "").length > 0);
+  if (!hasStoredData) return false;
+  const keys = Object.keys(incoming);
+  return keys.length > 0 && keys.every((key) => (incoming[key as FieldKey] ?? "") === "");
+}
+
 export function updateSession(
   sessionId: string,
   patch: { values: FieldValues; errors: FieldErrors; activeField: FieldKey | null },
 ): PatientSession {
   const session = ensure(sessionId);
+  if (wouldEraseRecord(session, patch.values)) {
+    session.connected = true;
+    publish(session);
+    return session;
+  }
   session.values = { ...session.values, ...patch.values };
   session.errors = patch.errors;
   session.activeField = patch.activeField;

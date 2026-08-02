@@ -129,6 +129,11 @@ and defaulted from `navigator.language`. Two decisions worth defending:
   while a nurse reading the same record in English sees "Enter a valid email" — same state, two
   readers, no duplicated validation.
 
+- *One accepted cost.* The server has no browser preference to read, so the first painted frame is
+  English even for a Thai visitor, and the initial HTML says `lang="en"` until the store resolves.
+  Fixing it properly means persisting the choice in a cookie and reading it server-side; that is the
+  right move the moment this stops being a demo.
+
 Thai also changes the typography: no inter-word spaces, taller ascenders and descenders, so line
 height is relaxed and nothing relies on word-boundary wrapping.
 
@@ -153,7 +158,7 @@ app/staff/page.tsx                      server: metadata, shell
     └── EmptyState
 
 components/ui.tsx                       StatusPill · ConnectionBadge · Card ·
-                                        CompletionBar · buttonStyles · relativeTime
+                                        CompletionBar · buttonStyles
 ```
 
 **Rules the tree follows.**

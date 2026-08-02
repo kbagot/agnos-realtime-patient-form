@@ -25,8 +25,10 @@ function errorDomId(key: FieldKey): string {
   return `patient-${key}-error`;
 }
 
+// 16px on phones is not a style choice: iOS Safari zooms the page on focus for
+// anything smaller. The tighter 15px only applies once there is a mouse.
 const CONTROL_BASE =
-  "w-full rounded-field border bg-surface px-3.5 text-[15px] text-ink transition-colors duration-150 " +
+  "w-full rounded-field border bg-surface px-3.5 text-base sm:text-[15px] text-ink transition-colors duration-150 " +
   "placeholder:text-ink-faint hover:border-line-strong focus:border-brand-ring";
 
 /* 44px minimum: the form is filled one-handed on a phone in a waiting room. */

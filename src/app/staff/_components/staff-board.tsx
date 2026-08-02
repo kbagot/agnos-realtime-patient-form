@@ -350,7 +350,7 @@ export function StaffBoard() {
                       aria-checked={active}
                       onClick={() => setFilter(option.value)}
                       className={cn(
-                        "h-10 rounded-lg px-3 text-xs font-semibold transition-colors lg:h-8",
+                        "h-11 rounded-lg px-3 text-xs font-semibold transition-colors lg:h-8",
                         active
                           ? "bg-surface text-ink shadow-card"
                           : "text-ink-soft hover:text-ink",
