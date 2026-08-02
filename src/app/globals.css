@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+/**
+ * Design tokens. Clinical, calm, high contrast — the same system serves a form
+ * filled by an anxious patient on a phone and a board read across a nurse
+ * station from two metres. Light is the default (waiting-room lighting); dark
+ * is first-class for the staff board, which often runs on a dimmed screen.
+ *
+ * Values live on :root so the dark scheme can override them; @theme inline
+ * exposes them to Tailwind as real utilities (bg-surface, text-ink-soft, …).
+ */
+:root {
+  --canvas: oklch(98.4% 0.006 240);
+  --surface: oklch(100% 0 0);
+  --sunken: oklch(96.6% 0.008 240);
+  --line: oklch(91% 0.011 240);
+  --line-strong: oklch(84% 0.016 240);
+
+  --ink: oklch(24% 0.03 250);
+  --ink-soft: oklch(46% 0.02 250);
+  --ink-faint: oklch(62% 0.017 250);
+
+  /* Health-tech teal — trustworthy, and distinct from stock corporate blue. */
+  --brand: oklch(56% 0.106 205);
+  --brand-strong: oklch(47% 0.104 205);
+  --brand-soft: oklch(95.5% 0.024 205);
+  --brand-ring: oklch(70% 0.09 205);
+  --on-brand: oklch(100% 0 0);
+
+  --live: oklch(58% 0.15 150);
+  --live-soft: oklch(95.5% 0.045 150);
+  --idle: oklch(64% 0.13 70);
+  --idle-soft: oklch(96% 0.05 70);
+  --done: oklch(54% 0.115 255);
+  --done-soft: oklch(95.5% 0.033 255);
+  --danger: oklch(55% 0.19 22);
+  --danger-soft: oklch(96% 0.035 22);
+
+  --shadow-card-value: 0 1px 2px oklch(24% 0.03 250 / 0.05), 0 8px 24px -12px oklch(24% 0.03 250 / 0.16);
+  --shadow-pop-value: 0 2px 6px oklch(24% 0.03 250 / 0.07), 0 18px 44px -20px oklch(24% 0.03 250 / 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: oklch(19.5% 0.018 250);
+    --surface: oklch(23.5% 0.02 250);
+    --sunken: oklch(21% 0.019 250);
+    --line: oklch(31% 0.022 250);
+    --line-strong: oklch(40% 0.025 250);
+
+    --ink: oklch(96% 0.008 250);
+    --ink-soft: oklch(78% 0.015 250);
+    --ink-faint: oklch(64% 0.018 250);
+
+    --brand: oklch(74% 0.104 205);
+    --brand-strong: oklch(82% 0.098 205);
+    --brand-soft: oklch(30% 0.045 205);
+    --brand-ring: oklch(64% 0.09 205);
+    --on-brand: oklch(18% 0.02 250);
+
+    --live: oklch(78% 0.16 150);
+    --live-soft: oklch(29% 0.055 150);
+    --idle: oklch(82% 0.13 75);
+    --idle-soft: oklch(30% 0.05 75);
+    --done: oklch(76% 0.1 255);
+    --done-soft: oklch(29% 0.045 255);
+    --danger: oklch(72% 0.15 22);
+    --danger-soft: oklch(30% 0.05 22);
+
+    --shadow-card-value: 0 1px 2px oklch(0% 0 0 / 0.4), 0 10px 30px -14px oklch(0% 0 0 / 0.7);
+    --shadow-pop-value: 0 2px 8px oklch(0% 0 0 / 0.45), 0 22px 50px -22px oklch(0% 0 0 / 0.8);
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ring: var(--brand-ring);
+  --color-on-brand: var(--on-brand);
+
+  --color-live: var(--live);
+  --color-live-soft: var(--live-soft);
+  --color-idle: var(--idle);
+  --color-idle-soft: var(--idle-soft);
+  --color-done: var(--done);
+  --color-done-soft: var(--done-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-field: 0.7rem;
+  --radius-card: 1.1rem;
+
+  --shadow-card: var(--shadow-card-value);
+  --shadow-pop: var(--shadow-pop-value);
+
+  --animate-pulse-live: pulse-live 1.9s ease-in-out infinite;
+  --animate-rise: rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-flash: flash 1.1s ease-out;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Field-level highlight fired when a value changes on the staff board. */
+@keyframes flash {
+  0% { background-color: var(--live-soft); box-shadow: inset 2px 0 0 var(--live); }
+  100% { background-color: transparent; box-shadow: inset 2px 0 0 transparent; }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* dvh keeps the form usable when the iOS keyboard opens. */
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-ring);
+    outline-offset: 2px;
+  }
+
+  /* Native date pickers should not look alien beside our inputs. */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: var(--color-brand-soft);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

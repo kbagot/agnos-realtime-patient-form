@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_REALTIME_TRANSPORT": "sse"
+    }
+  },
+  "functions": {
+    "src/app/api/realtime/stream/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}

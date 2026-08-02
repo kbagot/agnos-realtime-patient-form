@@ -1,0 +1,19 @@
+# One-click deploy of the WebSocket build (Render keeps a single long-lived Node
+# process, which is what real WebSockets need). See docs/development-planning.md
+# for why Vercel runs the SSE transport instead.
+services:
+  - type: web
+    name: agnos-realtime-patient-form
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_REALTIME_TRANSPORT
+        value: websocket
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
